@@ -1,0 +1,109 @@
+-- This script file explore code obfuscation methods
+-- to protect stored procedure data and processes.
+-- There are several methods for “wrapping” source code
+-- in the Oracle DBMS, including DBMS_DDL procedures
+-- such as WRAP and CREATE_WRAP.
+-- dberndt@usf.edu
+
+
+
+-- Step 1: To continue exploring a bit more, we can access the source code
+-- of the stored procedures (actually functions) from the prior
+-- laboratory activity on encryption.
+
+SELECT
+  line,
+  text
+FROM user_source
+WHERE
+  name LIKE 'ENCRYPT_VARCHAR2' AND
+  type LIKE 'FUNCTION'
+ORDER BY line;
+
+-- You should be able to see the source code for the procedure,
+-- including the embedded key (that needs to be kept secure).
+
+
+
+-- Step 2: Create a simple function that echoes the stored key
+-- embedded in the source code, so we can easily query the key.
+-- This procedure is just a short bit of code that we can use
+-- as an example for the wrapping procedures.
+
+CREATE OR REPLACE FUNCTION echo_key
+  RETURN VARCHAR2
+IS
+  plain_key VARCHAR2(100) :=
+    '8D4FB48524B9D96B1ADA4E274E95889FCEB90C3743B936B0';
+BEGIN
+  RETURN plain_key;
+END;
+
+
+
+-- Step 3: Test our function in a simple query.
+-- Do you see the key?
+
+SELECT echo_key() FROM dual;
+
+
+
+-- Step 4: Use a DBA script to look at the source code for
+-- the function and you should be able to see the key
+-- embedded in the code!
+
+SELECT
+  line,
+  text
+FROM user_source
+WHERE
+  name LIKE 'ECHO_KEY' AND
+  type LIKE 'FUNCTION'
+ORDER BY line;
+
+
+
+-- Step 5: Use an anonymous block of code to store
+-- the source code and invoke DBMS_DDL.CREATE_WRAPPED.
+-- Note: the code creates a new function called
+-- ECHO_KEY_WRAP (try it with a quick query).
+
+DECLARE
+  source_code VARCHAR2(32767);
+BEGIN
+  source_code :=
+    'CREATE OR REPLACE FUNCTION echo_key_wrap ' ||
+    '  RETURN VARCHAR2 ' ||
+    'IS '  ||
+    '  plain_key VARCHAR2(100) := ' ||
+    '    ''8D4FB48524B9D96B1ADA4E274E95889FCEB90C3743B936B0'';  ' ||
+    'BEGIN ' ||
+    '  RETURN plain_key; ' ||
+    'END;';
+  DBMS_DDL.CREATE_WRAPPED(source_code);
+END;
+
+-- Try the new funcion out.
+
+SELECT echo_key_wrap() FROM dual;
+
+
+
+-- Step 6: Now try to see the source code of the
+-- newly created wrapped function.
+-- Not much there.
+
+SELECT
+  line,
+  text
+FROM user_source
+WHERE
+  name LIKE 'ECHO_KEY_WRAP' AND
+  type LIKE 'FUNCTION'
+ORDER BY line;
+
+-- The code is no longer readable, which goes a long way
+-- toward providing security for both embedded data and
+-- the algorithms in stored procedures.
+-- Note: You can also simply click on the function in
+-- SQL Developer and all you should see is wrapped code.

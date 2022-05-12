@@ -1,0 +1,103 @@
+-- This script file outlines a simple example of
+-- encryption using the Oracle DBMS_CRYPTO package.
+-- Basically, we get a key and define stored procedures
+-- (really functions) to encrypt and decrypt a message
+-- (a string using a VARCHAR2 date type).
+-- dberndt@usf.edu
+
+-- Note: Make sure that you have the EXECUTE privilege
+-- on DBMS_CRYPTO before you start.
+-- This should be the case given the student role,
+-- but if the package is unrecognized that could
+-- be the problem.
+
+
+
+-- Step 1: Get a key using the DBMS_CRYPTO package.
+-- Of course, the key needs to be secured
+-- and not shared in actual use.
+--
+-- Go ahead and run this a couple times
+-- to see different keys.
+
+SELECT DBMS_CRYPTO.RANDOMBYTES(24)
+FROM dual;
+
+
+
+-- Step 2: Define an encryption function.
+-- The following function encrypts a string using
+-- the embedded key visible in the source code.
+-- Note: Use the function above to generate a key
+-- (if you want to replace the key in the example).
+-- The encryption key should be stored in the code,
+-- not passed as an input variable.
+
+CREATE OR REPLACE FUNCTION encrypt_varchar2 (plain_text_in IN VARCHAR2)
+   RETURN RAW
+IS
+   encrypted_text RAW(500);
+   encryption_key RAW(24) :=
+      '8D4FB48524B9D96B1ADA4E274E95889FCEB90C3743B936B0';
+   encryption_mod NUMBER :=
+      DBMS_CRYPTO.ENCRYPT_AES +
+      DBMS_CRYPTO.CHAIN_CBC +
+      DBMS_CRYPTO.PAD_PKCS5;
+BEGIN
+   encrypted_text := DBMS_CRYPTO.ENCRYPT (
+      UTL_RAW.CAST_TO_RAW(plain_text_in),
+      encryption_mod,
+      encryption_key);
+   RETURN encrypted_text;
+END;
+
+
+
+-- Step 3: Define a decryption function,
+-- paired with the encryption function above.
+-- This function takes the encrypted value
+-- and returns the original string.
+
+CREATE OR REPLACE FUNCTION decrypt_varchar2 (encrypted_text_in IN RAW)
+   RETURN VARCHAR2
+IS
+   plain_text VARCHAR2(500);
+   encryption_key RAW(24) :=
+      '8D4FB48524B9D96B1ADA4E274E95889FCEB90C3743B936B0';
+   decrypted_text RAW(500);
+   encryption_mod NUMBER :=
+      DBMS_CRYPTO.ENCRYPT_AES +
+      DBMS_CRYPTO.CHAIN_CBC +
+      DBMS_CRYPTO.PAD_PKCS5;
+BEGIN
+   decrypted_text := DBMS_CRYPTO.DECRYPT(
+      encrypted_text_in,
+      encryption_mod,
+      encryption_key);
+   plain_text := UTL_RAW.CAST_TO_VARCHAR2(decrypted_text);
+   RETURN plain_text;
+END;
+
+
+
+-- Step 4: Now, we can just try our functions in some simple
+-- queries that encrypt and decrypt a text message.
+-- First just try encrypting, then nest the functions
+-- to both encrypt and then decrypt in a single query.
+
+SELECT 'Secret message.' AS plain_text
+FROM dual;
+
+SELECT encrypt_varchar2('Secret message.') AS encrypted_text
+FROM dual;
+
+SELECT decrypt_varchar2(encrypt_varchar2('Secret message.')) AS plain_text
+FROM dual;
+
+
+-- Next steps: Try doing your own experiment.
+-- For instance, go a step further by creating a column
+-- in a table that might contain sensitive information,
+-- like a social secruity number or mobile phone number.
+-- Use these functions (or your own) to encrypt the data,
+-- as well as decrypt it in an example query.
